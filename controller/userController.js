@@ -11,54 +11,6 @@ exports.dummyUser =  async (req, res, next) => {
   });
 };
 
-exports.forgotPassword = async (req, res, next) => {
-  const email = req.body.email;
-  const name = req.body.name;
-  console.log(name, email);
-
-  // const message = `OTP for logIN please using within 5 minute   ${GenerateOtp()}`
-  // const message = `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
-  //   <div style="margin:50px auto;width:70%;padding:20px 0">
-  //     <div style="border-bottom:1px solid #eee">
-  //       <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Generic Developer </a>
-  //     </div>
-  //     <p style="font-size:1.1em">Hi,</p>
-  //     <p>Thank you for taking assesment of Generic kind of Developer. Use the following OTP to complete your Sign Up procedures. OTP is valid for 5 minutes</p>
-  //     <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${GenerateOtp()}</h2>
-  //     <p style="font-size:0.9em;">Best Regards,<br />Rishav</p>
-  //     <hr style="border:none;border-top:1px solid #eee" />
-  //     <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
-  
-  //     </div>
-  //   </div>
-  // </div>`;
-
-  const otp= GenerateOtp();
-  const mtxt= Emailtxt(otp);
-  // console.log(mtxt);
-
-  try {
-    await mailHelper({
-      email: email,
-      subject: "OTP FOR LOGIN",
-      message:mtxt,
-    });
-    res.status(200).json({
-      succes: true,
-      message: "Email sent successfully",
-    });
-  } catch (error) {
-    console.log(error);
-    // user.forgotPasswordToken = undefined
-    // user.forgotPasswordExpiry = undefined
-    // await user.save({ validateBeforeSave: false })
-    // return next(new CustomError(error.message, 500))
-  }
-  res.status(200).json({
-    success:true,
-    mtxt
-  }); 
-};
 
 exports.signUpOtp = (async (req, res, next) => {
   const email = req.body.email;
@@ -242,6 +194,8 @@ exports.logIn= (async (req,res,next)=>{
   const token=user.getJwtToken();
   user.otp=undefined;
   user.otpCreationTime=undefined;
+  user.otpWrongAttempts=0;
+
 
   await user.save();
 
