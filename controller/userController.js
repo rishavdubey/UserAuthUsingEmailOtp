@@ -20,14 +20,14 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
   const email = req.body.email;
   const name = req.body.name;
   if(!(validator.isEmail(email))){
-    return  next(new CustomError("Email must be passed correct in body for signUp purpose",400))
+    return  res.status(400).json({message:"Email must be passed correct in body for signUp purpose"});
   }
   
   // console.log(name, email);
   const user = await User.findOne({email:email});
   // console.log(user);
   if(user){
-    return next(new CustomError("Email is already is in Use Kindly LogIn",400));
+    return res.status(400).json({message:"Email is already is in Use Kindly LogIn"});
   }
 
   const otp= GenerateOtp();
@@ -62,20 +62,20 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
 exports.otpCreation = BigPromise(async(req,res,next) =>{
   const {email} = req.body;
   if(!email || !(validator.isEmail(email))){
-    return next(new CustomError("Email must be passed and it should be in correct format for OTP Generation", 400))
+    return res.status(400).json({message: "Email must be passed and it should be in correct format for OTP Generation" })
   }
 
   const user = await User.findOne({email:email});
   // console.log(user);
 
   if(!user){
-    return next(new CustomError(`Email not matched in our Database Kindly SignUp with ${email}`,400))
+    return res.status(400).json({message:`Email not matched in our Database Kindly SignUp with ${email}` })
   }
   
   const timeDurationforNewAttempt = ((new Date()) - user.otpWrongLimitExceeds )/60000 
 
   if(timeDurationforNewAttempt< process.env.BLOCK_TIME){
-    return next(new CustomError(`You have crossed your attempt to logIn. Kindly come back after ${Math.ceil(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes for new OTP`,400))
+    return res.status(400).json({message:`You have crossed your attempt to logIn. Kindly come back after ${Math.ceil(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes for new OTP` })
   }
 
   const timeDuration = ((new Date()) - user.otpCreationTime)/60000;
@@ -126,37 +126,37 @@ exports.otpCreation = BigPromise(async(req,res,next) =>{
 exports.logIn= BigPromise(async (req,res,next)=>{
   const {email, otp} = req.body;
   if(!email || !(validator.isEmail(email)) || !otp){
-    return next(new CustomError("Correct format email and OTP required for logIn",400))
+    return res.status(400).json({message:"Correct format email and OTP required for logIn" })
   }
 
   const user = await User.findOne({email:email});
 
   if(!user){
-    return next(new CustomError("Email is not matched in our Database Kindly SignUp First",400))
+    return res.status(400).json({message:"Email is not matched in our Database Kindly SignUp First" })
   }
 
   const timeDurationforNewAttempt = ((new Date()) - user.otpWrongLimitExceeds )/60000 
 
   if(timeDurationforNewAttempt< process.env.BLOCK_TIME){
-   return  next(new CustomError(`Please attempt logIn after ${Math.round(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes`,400))
+   return  res.status(400).json({message:`Please attempt logIn after ${Math.round(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes `})
   }
   
   if(user.otp!==Number(otp) && user.otpWrongAttempts>4){
     user.otpWrongLimitExceeds=new Date();
     user.otpWrongAttempts =0;
     await user.save();
-    return next(new CustomError(`Crossed your limit Please attemt again after ${process.env.BLOCK_TIME} minutes`,400))  
+    return res.status(400).json({message:`Crossed your limit Please attemt again after ${process.env.BLOCK_TIME} minutes`, })
   }
   if(user.otp!==Number(otp)){
     const attempt= user.otpWrongAttempts + 1;
     user.otpWrongAttempts=attempt;
     await user.save();
-    return next(new CustomError(`You have provided worng OTP your wrong attempt counts equals to ${attempt}`))
+    return res.status(400).json({message:`You have provided worng OTP your wrong attempt counts equals to ${attempt}` })
   }
   
   const timeDuration = ((new Date()) - user.otpCreationTime)/60000 
   if(timeDuration>=process.env.OTP_VALID_TIME) {
-    return next(new CustomError(`Please use the OTP within the time period ${process.env.OTP_VALID_TIME} minutes. Kindly Generate New OTP and proceed further logIn`,400))
+    return res.status(400).json({message:`Please use the OTP within the time period ${process.env.OTP_VALID_TIME} minutes. Kindly Generate New OTP and proceed further logIn` })
   }
 
   const token=user.getJwtToken();
