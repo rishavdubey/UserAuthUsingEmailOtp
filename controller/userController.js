@@ -19,7 +19,7 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
   const email = req.body.email;
   const name = req.body.name;
   if(!email){
-    return  next(new CustomError("Email must be passed in body for signUp purpose"))
+    return  next(new CustomError("Email must be passed in body for signUp purpose",400))
   }
   
   // console.log(name, email);
