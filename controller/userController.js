@@ -3,23 +3,25 @@ const { GenerateOtp } = require("../utils/otpGenerator");
 const { SingUpEmail } = require("../utils/SignUpEmail");
 const {LogInEmail} = require('../utils/LogInEmail')
 const User = require("../model/user");
+const BigPromise = require("../middleware/bigPromise");
+const CustomError = require("../utils/customError");
 
-exports.dummyUser =  async (req, res, next) => {
+
+exports.dummyUser = BigPromise(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: "Dummy user test",
   });
-};
+});
 
 
-exports.signUpOtp = (async (req, res, next) => {
+exports.signUpOtp = BigPromise(async (req, res, next) => {
   const email = req.body.email;
   const name = req.body.name;
   if(!email){
-    return res.status(400).json({
-      message:"Email must be passed in body for signUp purpose"
-    })
+    return  next(new CustomError("Email must be passed in body for signUp purpose"))
   }
+  
   // console.log(name, email);
   const user = await User.findOne({email:email});
   // console.log(user);
