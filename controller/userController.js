@@ -5,6 +5,7 @@ const {LogInEmail} = require('../utils/LogInEmail')
 const User = require("../model/user");
 const BigPromise = require("../middleware/bigPromise");
 const CustomError = require("../utils/customError");
+const validator= require('validator');
 
 
 exports.dummyUser = BigPromise(async (req, res, next) => {
@@ -18,29 +19,15 @@ exports.dummyUser = BigPromise(async (req, res, next) => {
 exports.signUpOtp = BigPromise(async (req, res, next) => {
   const email = req.body.email;
   const name = req.body.name;
-  if(!email){
-    return  next(new CustomError("Email must be passed in body for signUp purpose",400))
+  if(!(validator.isEmail(email))){
+    return  next(new CustomError("Email must be passed correct in body for signUp purpose",400))
   }
   
   // console.log(name, email);
   const user = await User.findOne({email:email});
   // console.log(user);
   if(user){
-    return res.status(400).json({
-      message:"Email is already is in Use Kindly LogIn"
-    })
-  }
-
-  if (
-    user &&
-    user.otpCreationTime &&
-    (new Date() - user.otpCreationTime) / 1000 < 60
-  ) {
-    return res
-      .status(429)
-      .json({
-        message: "Please wait for 1 minute before making another request for OTP.",
-      });
+    return next(new CustomError("Email is already is in Use Kindly LogIn",400));
   }
 
   const otp= GenerateOtp();
@@ -55,6 +42,7 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
     });
   } catch (error) {
     console.log(error);
+    return next(new CustomError(error.message,500));
     
   }
 
@@ -66,34 +54,28 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
     otpCreationTime,
   });
   res.status(200).json({
-    message:`OTP sent Successfully on Email.`
+    message:`OTP sent Successfully on Email Kindly Use it For LogIn within ${process.env.OTP_VALID_TIME}.`
   })
 
 });
 
-exports.otpCreation = async(req,res,next) =>{
+exports.otpCreation = BigPromise(async(req,res,next) =>{
   const {email} = req.body;
-  if(!email){
-    return res.status(400).json({
-      message:"Email required for logIn"
-    })
+  if(!email || !(validator.isEmail(email))){
+    return next(new CustomError("Email must be passed and it should be in correct format for OTP Generation", 400))
   }
 
   const user = await User.findOne({email:email});
   // console.log(user);
 
   if(!user){
-    return res.status(400).json({
-      message:`Email not matched in our Database Kindly SignUp with  ${email}`
-    })
+    return next(new CustomError(`Email not matched in our Database Kindly SignUp with ${email}`,400))
   }
   
   const timeDurationforNewAttempt = ((new Date()) - user.otpWrongLimitExceeds )/60000 
 
   if(timeDurationforNewAttempt< process.env.BLOCK_TIME){
-   return  res.status(400).json({
-      message:`You have crossed your attempt to logIn. Kindly come back after ${Math.ceil(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes for new OTP`
-    })
+    return next(new CustomError(`You have crossed your attempt to logIn. Kindly come back after ${Math.ceil(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes for new OTP`,400))
   }
 
   const timeDuration = ((new Date()) - user.otpCreationTime)/60000;
@@ -122,6 +104,7 @@ exports.otpCreation = async(req,res,next) =>{
     });
   } catch (error) {
     console.log(error);
+    return next(new CustomError(error.message,500));
     
   }
 
@@ -138,59 +121,42 @@ exports.otpCreation = async(req,res,next) =>{
     message: "OTP sent SuccessFully",
   })
 
-}
+})
 
-exports.logIn= (async (req,res,next)=>{
+exports.logIn= BigPromise(async (req,res,next)=>{
   const {email, otp} = req.body;
-  if(!email || !otp){
-    return res.status(400).json({
-      message:"Email and OTP required for logIn"
-    })
+  if(!email || !(validator.isEmail(email)) || !otp){
+    return next(new CustomError("Correct format email and OTP required for logIn",400))
   }
 
   const user = await User.findOne({email:email});
 
   if(!user){
-    return res.status(400).json({
-      message:"Email is not matched in our Database Kindly SignUp"
-    })
+    return next(new CustomError("Email is not matched in our Database Kindly SignUp First",400))
   }
 
   const timeDurationforNewAttempt = ((new Date()) - user.otpWrongLimitExceeds )/60000 
 
   if(timeDurationforNewAttempt< process.env.BLOCK_TIME){
-   return  res.status(400).json({
-      message:`Please attempt logIn after ${Math.round(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes`
-    })
+   return  next(new CustomError(`Please attempt logIn after ${Math.round(process.env.BLOCK_TIME - timeDurationforNewAttempt)} minutes`,400))
   }
   
-  if(user.otp!==otp && user.otpWrongAttempts>4){
+  if(user.otp!==Number(otp) && user.otpWrongAttempts>4){
     user.otpWrongLimitExceeds=new Date();
     user.otpWrongAttempts =0;
     await user.save();
-    return res.status(400).json({
-      message: `Crossed your limit Please attemt again after ${process.env.BLOCK_TIME} minutes`
-    })   
-
+    return next(new CustomError(`Crossed your limit Please attemt again after ${process.env.BLOCK_TIME} minutes`,400))  
   }
-  if(user.otp!= otp){
+  if(user.otp!==Number(otp)){
     const attempt= user.otpWrongAttempts + 1;
     user.otpWrongAttempts=attempt;
     await user.save();
-    return res.status(400).json({
-      message:`You have provided worng OTP your wrong attempt counts equals to ${attempt}`
-    })
-
+    return next(new CustomError(`You have provided worng OTP your wrong attempt counts equals to ${attempt}`))
   }
   
   const timeDuration = ((new Date()) - user.otpCreationTime)/60000 
   if(timeDuration>=process.env.OTP_VALID_TIME) {
-    user.otp=undefined;
-    user.otpCreationTime=undefined;
-    await user.save();
-    return res.status(400).json({
-      message:`Please use the OTP within the time period ${process.env.OTP_VALID_TIME} minutes. Kindly Generate New OTP and proceed further logIn`
-    })
+    return next(new CustomError(`Please use the OTP within the time period ${process.env.OTP_VALID_TIME} minutes. Kindly Generate New OTP and proceed further logIn`,400))
   }
 
   const token=user.getJwtToken();
@@ -198,13 +164,12 @@ exports.logIn= (async (req,res,next)=>{
   user.otpCreationTime=undefined;
   user.otpWrongAttempts=0;
 
-
   await user.save();
 
   res.status(200).json({
     success: true,
-    token:token,
-    message:"LogIn SuccessFullY"
+    message:"LogIn SuccessFullY",
+    token:token
   })
 
 })
