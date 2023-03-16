@@ -17,7 +17,7 @@ exports.dummyUser = BigPromise(async (req, res, next) => {
 
 
 exports.signUpOtp = BigPromise(async (req, res, next) => {
-  const email = req.body.email;
+  const email = req.body.email.toLowerCase();
   const name = req.body.name;
   if(!(validator.isEmail(email))){
     return  res.status(400).json({message:"Email must be passed correct in body for signUp purpose"});
@@ -60,7 +60,7 @@ exports.signUpOtp = BigPromise(async (req, res, next) => {
 });
 
 exports.otpCreation = BigPromise(async(req,res,next) =>{
-  const {email} = req.body;
+  const email = req.body.email.toLowerCase();
   if(!email || !(validator.isEmail(email))){
     return res.status(400).json({message: "Email must be passed and it should be in correct format for OTP Generation" })
   }
@@ -124,7 +124,9 @@ exports.otpCreation = BigPromise(async(req,res,next) =>{
 })
 
 exports.logIn= BigPromise(async (req,res,next)=>{
-  const {email, otp} = req.body;
+  const email = req.body.email.toLowerCase();
+  const otp = req.body.otp;
+  
   if(!email || !(validator.isEmail(email)) || !otp){
     return res.status(400).json({message:"Correct format email and OTP required for logIn" })
   }
